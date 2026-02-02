@@ -231,7 +231,7 @@ export const VehicleDetails = () => {
             className="flex-1"
             size="lg"
             disabled={!vehicle.isAvailable}
-            onClick={() => navigate(`/booking/${vehicle.id}`)}
+            onClick={() => navigate(`/booking/${vehicle.id}?type=${pricingType}`)}
           >
             {vehicle.isAvailable ? "Book Now" : "Not Available"}
           </Button>
