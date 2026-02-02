@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Calendar, Clock, MapPin, CreditCard, Wallet, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { vehicles, rentalShops } from "@/data/mockData";
@@ -11,9 +11,12 @@ type PaymentMethod = "card" | "upi" | "wallet";
 export const Booking = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const bookingType = searchParams.get("type") === "day" ? "day" : "hour";
+  
   const [selectedDate, setSelectedDate] = useState("Today");
   const [selectedTime, setSelectedTime] = useState("10:00 AM");
-  const [duration, setDuration] = useState(4);
+  const [duration, setDuration] = useState(bookingType === "day" ? 1 : 4);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
 
   const vehicle = vehicles.find((v) => v.id === id);
@@ -27,14 +30,15 @@ export const Booking = () => {
     );
   }
 
-  const totalPrice = vehicle.pricePerHour * duration;
+  const pricePerUnit = bookingType === "day" ? vehicle.pricePerDay : vehicle.pricePerHour;
+  const totalPrice = pricePerUnit * duration;
 
   const dates = ["Today", "Tomorrow", "Wed, 5 Feb", "Thu, 6 Feb"];
   const times = ["9:00 AM", "10:00 AM", "11:00 AM", "12:00 PM", "2:00 PM", "4:00 PM"];
 
   const handleConfirmBooking = () => {
     toast.success("Booking confirmed successfully!", {
-      description: `Your ${vehicle.name} is booked for ${duration} hours`,
+      description: `Your ${vehicle.name} is booked for ${duration} ${bookingType === "day" ? (duration === 1 ? "day" : "days") : (duration === 1 ? "hour" : "hours")}`,
     });
     navigate("/bookings");
   };
@@ -134,21 +138,34 @@ export const Booking = () => {
 
         {/* Duration */}
         <div className="animate-slide-up" style={{ animationDelay: "0.3s" }}>
-          <h3 className="mb-3 font-semibold text-foreground">Duration (hours)</h3>
+          <div className="mb-3 flex items-center gap-2">
+            {bookingType === "day" ? (
+              <Calendar className="h-5 w-5 text-primary" />
+            ) : (
+              <Clock className="h-5 w-5 text-primary" />
+            )}
+            <h3 className="font-semibold text-foreground">
+              Duration ({bookingType === "day" ? "days" : "hours"})
+            </h3>
+          </div>
           <div className="flex items-center gap-4">
             <button
+              type="button"
               onClick={() => setDuration(Math.max(1, duration - 1))}
-              className="flex h-12 w-12 items-center justify-center rounded-xl bg-secondary text-xl font-bold transition-colors hover:bg-secondary/80"
+              className="flex h-12 w-12 items-center justify-center rounded-xl bg-secondary text-xl font-bold transition-colors hover:bg-secondary/80 active:scale-95"
             >
               −
             </button>
             <div className="flex-1 rounded-xl bg-card py-3 text-center shadow-card">
               <span className="text-2xl font-bold text-primary">{duration}</span>
-              <span className="ml-1 text-muted-foreground">hours</span>
+              <span className="ml-1 text-muted-foreground">
+                {bookingType === "day" ? (duration === 1 ? "day" : "days") : (duration === 1 ? "hour" : "hours")}
+              </span>
             </div>
             <button
+              type="button"
               onClick={() => setDuration(duration + 1)}
-              className="flex h-12 w-12 items-center justify-center rounded-xl bg-secondary text-xl font-bold transition-colors hover:bg-secondary/80"
+              className="flex h-12 w-12 items-center justify-center rounded-xl bg-secondary text-xl font-bold transition-colors hover:bg-secondary/80 active:scale-95"
             >
               +
             </button>
@@ -210,7 +227,7 @@ export const Booking = () => {
           <div className="space-y-3 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">
-                ${vehicle.pricePerHour} × {duration} hours
+                ${pricePerUnit} × {duration} {bookingType === "day" ? (duration === 1 ? "day" : "days") : (duration === 1 ? "hour" : "hours")}
               </span>
               <span className="font-medium text-foreground">${totalPrice}</span>
             </div>
