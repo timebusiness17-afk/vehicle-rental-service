@@ -44,7 +44,6 @@ import { AssignedTasks } from "./pages/staff/AssignedTasks";
 import { EditProfile } from "./pages/user/EditProfile";
 import { KYCVerification } from "./pages/user/KYCVerification";
 import { SavedLocations } from "./pages/user/SavedLocations";
-import { SavedShops } from "./pages/user/SavedShops";
 import { PaymentMethods } from "./pages/user/PaymentMethods";
 import { Notifications } from "./pages/user/Notifications";
 import { Settings } from "./pages/user/Settings";
@@ -80,7 +79,6 @@ const App = () => (
               <Route path="/profile/edit" element={<EditProfile />} />
               <Route path="/profile/kyc" element={<KYCVerification />} />
               <Route path="/saved-locations" element={<SavedLocations />} />
-              <Route path="/saved-shops" element={<SavedShops />} />
               <Route path="/payment-methods" element={<PaymentMethods />} />
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/settings" element={<Settings />} />

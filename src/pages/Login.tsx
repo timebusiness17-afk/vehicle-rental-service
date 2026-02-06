@@ -1,42 +1,58 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Mail, Lock, Eye, EyeOff, ArrowRight, Users, Store, Wrench, Shield, Loader2 } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, ArrowRight, Users, Store, Wrench, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { useAuth, UserRole, getRoleDashboardPath } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { UserRole } from "@/types/auth";
 
-const roleInfo: Record<UserRole, { icon: React.ElementType; label: string; color: string }> = {
-  user: { icon: Users, label: 'Customer', color: 'bg-blue-500' },
-  owner: { icon: Store, label: 'Shop Owner', color: 'bg-purple-500' },
-  staff: { icon: Wrench, label: 'Staff', color: 'bg-green-500' },
-  admin: { icon: Shield, label: 'Admin', color: 'bg-red-500' },
+const roleInfo: Record<UserRole, { icon: React.ElementType; label: string; color: string; credentials: string }> = {
+  user: { icon: Users, label: 'Customer', color: 'bg-blue-500', credentials: 'user@rental.com / user123' },
+  owner: { icon: Store, label: 'Shop Owner', color: 'bg-purple-500', credentials: 'owner@rental.com / owner123' },
+  staff: { icon: Wrench, label: 'Staff', color: 'bg-green-500', credentials: 'staff@rental.com / staff123' },
+  admin: { icon: Shield, label: 'Admin', color: 'bg-red-500', credentials: 'admin@rental.com / admin123' },
 };
 
 export const Login = () => {
   const navigate = useNavigate();
-  const { login, isLoading: authLoading } = useAuth();
+  const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
       toast.error("Please fill in all fields");
       return;
     }
 
-    setIsLoading(true);
-    const result = await login(email, password);
-    setIsLoading(false);
+    const result = login(email, password);
     
     if (result.success && result.redirectPath) {
       toast.success("Login successful!");
       navigate(result.redirectPath);
     } else {
       toast.error(result.error || "Login failed");
+    }
+  };
+
+  const handleQuickLogin = (role: UserRole) => {
+    const credentials: Record<UserRole, { email: string; password: string }> = {
+      user: { email: 'user@rental.com', password: 'user123' },
+      owner: { email: 'owner@rental.com', password: 'owner123' },
+      staff: { email: 'staff@rental.com', password: 'staff123' },
+      admin: { email: 'admin@rental.com', password: 'admin123' },
+    };
+
+    const cred = credentials[role];
+    const result = login(cred.email, cred.password);
+    
+    if (result.success && result.redirectPath) {
+      toast.success(`Logged in as ${roleInfo[role].label}`);
+      navigate(result.redirectPath);
     }
   };
 
@@ -67,6 +83,40 @@ export const Login = () => {
             </p>
           </div>
 
+          {/* Quick Role Selection */}
+          <div className="mb-6">
+            <p className="text-sm font-medium text-muted-foreground mb-3 text-center">Quick Login (Demo)</p>
+            <div className="grid grid-cols-2 gap-2">
+              {(Object.keys(roleInfo) as UserRole[]).map((role) => {
+                const info = roleInfo[role];
+                const Icon = info.icon;
+                return (
+                  <button
+                    key={role}
+                    type="button"
+                    onClick={() => handleQuickLogin(role)}
+                    className={`flex items-center gap-2 rounded-xl p-3 border-2 transition-all hover:scale-[1.02] active:scale-[0.98] ${
+                      selectedRole === role 
+                        ? 'border-primary bg-primary/10' 
+                        : 'border-border bg-card hover:border-primary/50'
+                    }`}
+                  >
+                    <div className={`rounded-lg p-2 ${info.color}`}>
+                      <Icon className="h-4 w-4 text-white" />
+                    </div>
+                    <span className="text-sm font-medium text-foreground">{info.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4 mb-6">
+            <div className="h-px flex-1 bg-border" />
+            <span className="text-sm text-muted-foreground">or login manually</span>
+            <div className="h-px flex-1 bg-border" />
+          </div>
+
           {/* Form */}
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="relative">
@@ -77,7 +127,6 @@ export const Login = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="h-14 rounded-2xl border-2 border-border bg-card pl-12 text-base transition-all focus:border-primary"
-                disabled={isLoading}
               />
             </div>
 
@@ -89,7 +138,6 @@ export const Login = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="h-14 rounded-2xl border-2 border-border bg-card pl-12 pr-12 text-base transition-all focus:border-primary"
-                disabled={isLoading}
               />
               <button
                 type="button"
@@ -100,18 +148,9 @@ export const Login = () => {
               </button>
             </div>
 
-            <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                  Signing In...
-                </>
-              ) : (
-                <>
-                  Sign In
-                  <ArrowRight className="h-5 w-5 ml-2" />
-                </>
-              )}
+            <Button type="submit" className="w-full" size="lg">
+              Sign In
+              <ArrowRight className="h-5 w-5" />
             </Button>
           </form>
 

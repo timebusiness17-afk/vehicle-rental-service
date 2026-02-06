@@ -1,70 +1,41 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Mail, Lock, Eye, EyeOff, ArrowRight, User, Phone, Loader2 } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, ArrowRight, Chrome, User, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { useAuth } from "@/contexts/AuthContext";
 
 export const Signup = () => {
   const navigate = useNavigate();
-  const { signup } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     phone: "",
     password: "",
-    confirmPassword: "",
   });
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const handleSignup = async (e: React.FormEvent) => {
+  const handleSignup = (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!formData.name || !formData.email || !formData.password) {
       toast.error("Please fill in all required fields");
       return;
     }
+    toast.success("Account created successfully!");
+    navigate("/");
+  };
 
-    if (formData.password !== formData.confirmPassword) {
-      toast.error("Passwords do not match");
-      return;
-    }
-
-    if (formData.password.length < 6) {
-      toast.error("Password must be at least 6 characters");
-      return;
-    }
-
-    setIsLoading(true);
-    const result = await signup(formData.email, formData.password, formData.name, formData.phone, 'user');
-    setIsLoading(false);
-
-    if (result.success) {
-      if (result.error) {
-        // This is the "check your email" message
-        toast.info(result.error);
-        navigate('/login');
-      } else {
-        toast.success("Account created successfully!");
-        navigate('/login');
-      }
-    } else {
-      toast.error(result.error || "Signup failed");
-    }
+  const handleGoogleSignup = () => {
+    toast.success("Account created with Google!");
+    navigate("/");
   };
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <div className="gradient-hero flex flex-1 flex-col justify-center px-6 py-8">
+      <div className="gradient-hero flex flex-1 flex-col justify-center px-6 py-12">
         <div className="mx-auto w-full max-w-sm animate-slide-up">
           {/* Logo */}
-          <div className="mb-6 text-center">
+          <div className="mb-8 text-center">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl gradient-primary shadow-button">
               <svg
                 className="h-8 w-8 text-primary-foreground"
@@ -82,7 +53,7 @@ export const Signup = () => {
             </div>
             <h1 className="text-3xl font-bold text-foreground">Create Account</h1>
             <p className="mt-2 text-muted-foreground">
-              Sign up as a customer
+              Start your journey with us today
             </p>
           </div>
 
@@ -92,11 +63,10 @@ export const Signup = () => {
               <User className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
               <Input
                 type="text"
-                placeholder="Full Name *"
+                placeholder="Full name"
                 value={formData.name}
-                onChange={(e) => handleInputChange("name", e.target.value)}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 className="h-14 rounded-2xl border-2 border-border bg-card pl-12 text-base transition-all focus:border-primary"
-                disabled={isLoading}
               />
             </div>
 
@@ -104,11 +74,10 @@ export const Signup = () => {
               <Mail className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
               <Input
                 type="email"
-                placeholder="Email address *"
+                placeholder="Email address"
                 value={formData.email}
-                onChange={(e) => handleInputChange("email", e.target.value)}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 className="h-14 rounded-2xl border-2 border-border bg-card pl-12 text-base transition-all focus:border-primary"
-                disabled={isLoading}
               />
             </div>
 
@@ -116,11 +85,10 @@ export const Signup = () => {
               <Phone className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
               <Input
                 type="tel"
-                placeholder="Phone Number"
+                placeholder="Phone number (optional)"
                 value={formData.phone}
-                onChange={(e) => handleInputChange("phone", e.target.value)}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 className="h-14 rounded-2xl border-2 border-border bg-card pl-12 text-base transition-all focus:border-primary"
-                disabled={isLoading}
               />
             </div>
 
@@ -128,11 +96,10 @@ export const Signup = () => {
               <Lock className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
               <Input
                 type={showPassword ? "text" : "password"}
-                placeholder="Password *"
+                placeholder="Create password"
                 value={formData.password}
-                onChange={(e) => handleInputChange("password", e.target.value)}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 className="h-14 rounded-2xl border-2 border-border bg-card pl-12 pr-12 text-base transition-all focus:border-primary"
-                disabled={isLoading}
               />
               <button
                 type="button"
@@ -143,46 +110,48 @@ export const Signup = () => {
               </button>
             </div>
 
-            <div className="relative">
-              <Lock className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                type={showPassword ? "text" : "password"}
-                placeholder="Confirm Password *"
-                value={formData.confirmPassword}
-                onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
-                className="h-14 rounded-2xl border-2 border-border bg-card pl-12 text-base transition-all focus:border-primary"
-                disabled={isLoading}
-              />
-            </div>
-
-            <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                  Creating Account...
-                </>
-              ) : (
-                <>
-                  Create Account
-                  <ArrowRight className="h-5 w-5 ml-2" />
-                </>
-              )}
+            <Button type="submit" className="w-full" size="lg">
+              Create Account
+              <ArrowRight className="h-5 w-5" />
             </Button>
           </form>
+
+          {/* Divider */}
+          <div className="my-6 flex items-center gap-4">
+            <div className="h-px flex-1 bg-border" />
+            <span className="text-sm text-muted-foreground">or continue with</span>
+            <div className="h-px flex-1 bg-border" />
+          </div>
+
+          {/* Social signup */}
+          <Button
+            type="button"
+            variant="glass"
+            className="w-full"
+            size="lg"
+            onClick={handleGoogleSignup}
+          >
+            <Chrome className="h-5 w-5" />
+            Continue with Google
+          </Button>
+
+          {/* Terms */}
+          <p className="mt-6 text-center text-xs text-muted-foreground">
+            By signing up, you agree to our{" "}
+            <Link to="/terms" className="text-primary hover:underline">
+              Terms of Service
+            </Link>{" "}
+            and{" "}
+            <Link to="/privacy" className="text-primary hover:underline">
+              Privacy Policy
+            </Link>
+          </p>
 
           {/* Login link */}
           <p className="mt-6 text-center text-sm text-muted-foreground">
             Already have an account?{" "}
             <Link to="/login" className="font-semibold text-primary hover:underline">
               Sign in
-            </Link>
-          </p>
-
-          {/* Shop owner signup link */}
-          <p className="mt-2 text-center text-sm text-muted-foreground">
-            Own a rental shop?{" "}
-            <Link to="/shop-signup" className="font-semibold text-purple-500 hover:underline">
-              Register as partner
             </Link>
           </p>
         </div>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Plus, Store, MapPin, Clock, Star, MoreVertical, Edit, Power, Trash2, Loader2 } from 'lucide-react';
+import { ArrowLeft, Plus, Store, MapPin, Clock, Star, MoreVertical, Edit, Power, Trash2, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -17,19 +17,16 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { useNavigate } from 'react-router-dom';
-import { useOwnerShops, useCreateShop, useUpdateShop, useDeleteShop } from '@/hooks/useShops';
-import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/hooks/use-toast';
+import { mockOwnerShops, OwnerShop } from '@/data/ownerMockData';
 
 export const ShopManagement = () => {
   const navigate = useNavigate();
-  const { data: shops = [], isLoading } = useOwnerShops();
-  const createShop = useCreateShop();
-  const updateShop = useUpdateShop();
-  const deleteShop = useDeleteShop();
-
+  const { toast } = useToast();
+  const [shops, setShops] = useState<OwnerShop[]>(mockOwnerShops);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
-  const [selectedShop, setSelectedShop] = useState<string | null>(null);
+  const [selectedShop, setSelectedShop] = useState<OwnerShop | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     address: '',
@@ -44,53 +41,89 @@ export const ShopManagement = () => {
     setFormData({ name: '', address: '', operatingHours: '' });
   };
 
-  const handleAddShop = async () => {
-    if (!formData.name || !formData.address) return;
+  const handleAddShop = () => {
+    if (!formData.name || !formData.address) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields.",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    await createShop.mutateAsync({
+    const newShop: OwnerShop = {
+      id: `os${Date.now()}`,
       name: formData.name,
       address: formData.address,
-      operating_hours: formData.operatingHours || '9:00 AM - 6:00 PM',
+      operatingHours: formData.operatingHours || '9:00 AM - 6:00 PM',
+      status: 'active',
+      vehicleCount: 0,
+      rating: 0,
+      totalBookings: 0,
+      revenue: 0,
+    };
+
+    setShops(prev => [...prev, newShop]);
+    toast({
+      title: "Shop Added",
+      description: `${formData.name} has been added successfully.`,
     });
-    
     setShowAddDialog(false);
     resetForm();
   };
 
-  const handleEditShop = async () => {
+  const handleEditShop = () => {
     if (!selectedShop) return;
 
-    await updateShop.mutateAsync({
-      id: selectedShop,
-      name: formData.name,
-      address: formData.address,
-      operating_hours: formData.operatingHours,
+    setShops(prev =>
+      prev.map(shop =>
+        shop.id === selectedShop.id
+          ? { ...shop, ...formData }
+          : shop
+      )
+    );
+    toast({
+      title: "Shop Updated",
+      description: `${formData.name} has been updated successfully.`,
     });
-    
     setShowEditDialog(false);
     setSelectedShop(null);
     resetForm();
   };
 
-  const openEditDialog = (shop: any) => {
-    setSelectedShop(shop.id);
+  const openEditDialog = (shop: OwnerShop) => {
+    setSelectedShop(shop);
     setFormData({
       name: shop.name,
       address: shop.address,
-      operatingHours: shop.operating_hours || '',
+      operatingHours: shop.operatingHours,
     });
     setShowEditDialog(true);
   };
 
-  const toggleShopStatus = async (shopId: string, isActive: boolean) => {
-    await updateShop.mutateAsync({
-      id: shopId,
-      is_active: !isActive,
+  const toggleShopStatus = (shopId: string) => {
+    setShops(prev =>
+      prev.map(shop =>
+        shop.id === shopId
+          ? { ...shop, status: shop.status === 'active' ? 'inactive' : 'active' }
+          : shop
+      )
+    );
+    const shop = shops.find(s => s.id === shopId);
+    toast({
+      title: shop?.status === 'active' ? "Shop Disabled" : "Shop Enabled",
+      description: `${shop?.name} has been ${shop?.status === 'active' ? 'disabled' : 'enabled'}.`,
     });
   };
 
-  const handleDeleteShop = async (shopId: string) => {
-    await deleteShop.mutateAsync(shopId);
+  const deleteShop = (shopId: string) => {
+    const shop = shops.find(s => s.id === shopId);
+    setShops(prev => prev.filter(s => s.id !== shopId));
+    toast({
+      title: "Shop Deleted",
+      description: `${shop?.name} has been deleted.`,
+      variant: "destructive",
+    });
   };
 
   return (
@@ -113,23 +146,7 @@ export const ShopManagement = () => {
 
       <main className="px-4 py-6 space-y-4">
         {/* Shop List */}
-        {isLoading ? (
-          <div className="space-y-4">
-            {[1, 2, 3].map(i => (
-              <Card key={i} className="border-border">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <Skeleton className="h-12 w-12 rounded-xl" />
-                    <div className="flex-1 space-y-2">
-                      <Skeleton className="h-4 w-32" />
-                      <Skeleton className="h-3 w-48" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : shops.length === 0 ? (
+        {shops.length === 0 ? (
           <Card className="border-border">
             <CardContent className="p-8 text-center">
               <Store className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
@@ -153,11 +170,11 @@ export const ShopManagement = () => {
                       <div className="flex items-center gap-2">
                         <p className="font-medium text-foreground">{shop.name}</p>
                         <span className={`text-xs px-2 py-0.5 rounded-full ${
-                          shop.is_active
+                          shop.status === 'active'
                             ? 'bg-green-500/10 text-green-500'
                             : 'bg-destructive/10 text-destructive'
                         }`}>
-                          {shop.is_active ? 'active' : 'inactive'}
+                          {shop.status}
                         </span>
                       </div>
                       <div className="flex items-center gap-1 mt-1">
@@ -166,7 +183,7 @@ export const ShopManagement = () => {
                       </div>
                       <div className="flex items-center gap-1 mt-1">
                         <Clock className="h-3 w-3 text-muted-foreground" />
-                        <p className="text-xs text-muted-foreground">{shop.operating_hours || 'Not set'}</p>
+                        <p className="text-xs text-muted-foreground">{shop.operatingHours}</p>
                       </div>
                     </div>
                   </div>
@@ -181,13 +198,13 @@ export const ShopManagement = () => {
                         <Edit className="h-4 w-4 mr-2" />
                         Edit
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => toggleShopStatus(shop.id, shop.is_active)}>
+                      <DropdownMenuItem onClick={() => toggleShopStatus(shop.id)}>
                         <Power className="h-4 w-4 mr-2" />
-                        {shop.is_active ? 'Disable' : 'Enable'}
+                        {shop.status === 'active' ? 'Disable' : 'Enable'}
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         className="text-destructive"
-                        onClick={() => handleDeleteShop(shop.id)}
+                        onClick={() => deleteShop(shop.id)}
                       >
                         <Trash2 className="h-4 w-4 mr-2" />
                         Delete
@@ -197,7 +214,15 @@ export const ShopManagement = () => {
                 </div>
 
                 {/* Stats */}
-                <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-border">
+                <div className="grid grid-cols-4 gap-2 mt-4 pt-4 border-t border-border">
+                  <div className="text-center">
+                    <p className="text-lg font-bold text-foreground">{shop.vehicleCount}</p>
+                    <p className="text-xs text-muted-foreground">Vehicles</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-lg font-bold text-foreground">{shop.totalBookings}</p>
+                    <p className="text-xs text-muted-foreground">Bookings</p>
+                  </div>
                   <div className="text-center">
                     <p className="text-lg font-bold text-foreground flex items-center justify-center gap-1">
                       <Star className="h-3 w-3 fill-yellow-500 text-yellow-500" />
@@ -206,13 +231,8 @@ export const ShopManagement = () => {
                     <p className="text-xs text-muted-foreground">Rating</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-lg font-bold text-foreground">{shop.review_count || 0}</p>
-                    <p className="text-xs text-muted-foreground">Reviews</p>
-                  </div>
-                  <div className="text-center">
-                    <span className={`text-xs px-2 py-1 rounded-full ${shop.is_open ? 'bg-green-500/10 text-green-500' : 'bg-orange-500/10 text-orange-500'}`}>
-                      {shop.is_open ? 'Open' : 'Closed'}
-                    </span>
+                    <p className="text-lg font-bold text-green-500">${shop.revenue.toLocaleString()}</p>
+                    <p className="text-xs text-muted-foreground">Revenue</p>
                   </div>
                 </div>
               </CardContent>
@@ -257,18 +277,8 @@ export const ShopManagement = () => {
             <Button variant="outline" onClick={() => { setShowAddDialog(false); resetForm(); }}>
               Cancel
             </Button>
-            <Button 
-              onClick={handleAddShop}
-              disabled={createShop.isPending || !formData.name || !formData.address}
-            >
-              {createShop.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Adding...
-                </>
-              ) : (
-                'Add Shop'
-              )}
+            <Button onClick={handleAddShop}>
+              Add Shop
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -310,18 +320,8 @@ export const ShopManagement = () => {
             <Button variant="outline" onClick={() => { setShowEditDialog(false); resetForm(); }}>
               Cancel
             </Button>
-            <Button 
-              onClick={handleEditShop}
-              disabled={updateShop.isPending}
-            >
-              {updateShop.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                'Save Changes'
-              )}
+            <Button onClick={handleEditShop}>
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>
