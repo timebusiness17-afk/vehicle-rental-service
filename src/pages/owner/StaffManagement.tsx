@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Plus, Users, MoreVertical, Edit, Power, Trash2, Phone, Mail, CheckCircle, Clock } from 'lucide-react';
+import { ArrowLeft, Plus, Users, MoreVertical, Edit, Power, Trash2, Mail, CheckCircle, Clock, Eye, EyeOff, Loader2, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -24,20 +24,27 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useNavigate } from 'react-router-dom';
-import { useToast } from '@/hooks/use-toast';
-import { mockOwnerStaff, mockOwnerShops, OwnerStaff } from '@/data/ownerMockData';
+import { useOwnerStaff, useCreateStaff, useUpdateStaff, useDeleteStaff } from '@/hooks/useStaff';
+import { useOwnerShops } from '@/hooks/useShops';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export const StaffManagement = () => {
   const navigate = useNavigate();
-  const { toast } = useToast();
-  const [staffList, setStaffList] = useState<OwnerStaff[]>(mockOwnerStaff);
+  const { data: staffList = [], isLoading: staffLoading } = useOwnerStaff();
+  const { data: shops = [], isLoading: shopsLoading } = useOwnerShops();
+  const createStaff = useCreateStaff();
+  const updateStaff = useUpdateStaff();
+  const deleteStaff = useDeleteStaff();
+  
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
-  const [selectedStaff, setSelectedStaff] = useState<OwnerStaff | null>(null);
+  const [selectedStaff, setSelectedStaff] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
+    password: '',
     shopId: '',
   });
 
@@ -46,104 +53,68 @@ export const StaffManagement = () => {
   };
 
   const resetForm = () => {
-    setFormData({ name: '', email: '', phone: '', shopId: '' });
+    setFormData({ name: '', email: '', phone: '', password: '', shopId: '' });
+    setShowPassword(false);
   };
 
-  const handleAddStaff = () => {
-    if (!formData.name || !formData.email || !formData.phone) {
-      toast({
-        title: "Error",
-        description: "Please fill in all required fields.",
-        variant: "destructive",
-      });
+  const handleAddStaff = async () => {
+    if (!formData.name || !formData.email || !formData.phone || !formData.password) {
       return;
     }
 
-    const shop = mockOwnerShops.find(s => s.id === formData.shopId) || mockOwnerShops[0];
-    const newStaff: OwnerStaff = {
-      id: `st${Date.now()}`,
-      shopId: formData.shopId || mockOwnerShops[0].id,
-      shopName: shop.name,
+    if (formData.password.length < 6) {
+      return;
+    }
+
+    await createStaff.mutateAsync({
       name: formData.name,
       email: formData.email,
       phone: formData.phone,
-      status: 'active',
-      assignedTasks: 0,
-      completedTasks: 0,
-      joinedDate: new Date().toISOString().split('T')[0],
-    };
-
-    setStaffList(prev => [...prev, newStaff]);
-    toast({
-      title: "Staff Added",
-      description: `${formData.name} has been added successfully.`,
+      password: formData.password,
+      shop_id: formData.shopId || undefined,
     });
+    
     setShowAddDialog(false);
     resetForm();
   };
 
-  const handleEditStaff = () => {
+  const handleEditStaff = async () => {
     if (!selectedStaff) return;
 
-    const shop = mockOwnerShops.find(s => s.id === formData.shopId);
-    setStaffList(prev =>
-      prev.map(s =>
-        s.id === selectedStaff.id
-          ? {
-              ...s,
-              name: formData.name,
-              email: formData.email,
-              phone: formData.phone,
-              shopId: formData.shopId,
-              shopName: shop?.name || s.shopName,
-            }
-          : s
-      )
-    );
-    toast({
-      title: "Staff Updated",
-      description: `${formData.name} has been updated successfully.`,
+    await updateStaff.mutateAsync({
+      id: selectedStaff,
+      shop_id: formData.shopId || undefined,
     });
+    
     setShowEditDialog(false);
     setSelectedStaff(null);
     resetForm();
   };
 
-  const openEditDialog = (staff: OwnerStaff) => {
-    setSelectedStaff(staff);
+  const openEditDialog = (staff: any) => {
+    setSelectedStaff(staff.id);
     setFormData({
-      name: staff.name,
-      email: staff.email,
-      phone: staff.phone,
-      shopId: staff.shopId,
+      name: staff.name || '',
+      email: staff.email || '',
+      phone: staff.phone || '',
+      password: '',
+      shopId: staff.shop_id || '',
     });
     setShowEditDialog(true);
   };
 
-  const toggleStaffStatus = (staffId: string) => {
-    setStaffList(prev =>
-      prev.map(s =>
-        s.id === staffId
-          ? { ...s, status: s.status === 'active' ? 'inactive' : 'active' }
-          : s
-      )
-    );
-    const staff = staffList.find(s => s.id === staffId);
-    toast({
-      title: staff?.status === 'active' ? "Staff Deactivated" : "Staff Activated",
-      description: `${staff?.name} has been ${staff?.status === 'active' ? 'deactivated' : 'activated'}.`,
+  const toggleStaffStatus = async (staffId: string, currentStatus: boolean) => {
+    await updateStaff.mutateAsync({
+      id: staffId,
+      is_active: !currentStatus,
     });
   };
 
-  const deleteStaff = (staffId: string) => {
-    const staff = staffList.find(s => s.id === staffId);
-    setStaffList(prev => prev.filter(s => s.id !== staffId));
-    toast({
-      title: "Staff Removed",
-      description: `${staff?.name} has been removed.`,
-      variant: "destructive",
-    });
+  const handleDeleteStaff = async (staffId: string) => {
+    await deleteStaff.mutateAsync(staffId);
   };
+
+  const isLoading = staffLoading || shopsLoading;
 
   return (
     <div className="min-h-screen bg-background">
@@ -156,7 +127,7 @@ export const StaffManagement = () => {
             </Button>
             <h1 className="text-lg font-bold text-foreground">Staff Management</h1>
           </div>
-          <Button size="sm" onClick={() => setShowAddDialog(true)}>
+          <Button size="sm" onClick={() => setShowAddDialog(true)} disabled={shops.length === 0}>
             <Plus className="h-4 w-4 mr-1" />
             Add Staff
           </Button>
@@ -168,38 +139,85 @@ export const StaffManagement = () => {
         <div className="grid grid-cols-3 gap-3">
           <Card className="border-border">
             <CardContent className="p-3 text-center">
-              <p className="text-xl font-bold text-foreground">{staffList.length}</p>
+              {isLoading ? (
+                <Skeleton className="h-6 w-8 mx-auto" />
+              ) : (
+                <p className="text-xl font-bold text-foreground">{staffList.length}</p>
+              )}
               <p className="text-xs text-muted-foreground">Total Staff</p>
             </CardContent>
           </Card>
           <Card className="border-border">
             <CardContent className="p-3 text-center">
-              <p className="text-xl font-bold text-green-500">
-                {staffList.filter(s => s.status === 'active').length}
-              </p>
+              {isLoading ? (
+                <Skeleton className="h-6 w-8 mx-auto" />
+              ) : (
+                <p className="text-xl font-bold text-green-500">
+                  {staffList.filter(s => s.is_active).length}
+                </p>
+              )}
               <p className="text-xs text-muted-foreground">Active</p>
             </CardContent>
           </Card>
           <Card className="border-border">
             <CardContent className="p-3 text-center">
-              <p className="text-xl font-bold text-foreground">
-                {staffList.reduce((sum, s) => sum + s.assignedTasks, 0)}
-              </p>
-              <p className="text-xs text-muted-foreground">Tasks Today</p>
+              {isLoading ? (
+                <Skeleton className="h-6 w-8 mx-auto" />
+              ) : (
+                <p className="text-xl font-bold text-foreground">{shops.length}</p>
+              )}
+              <p className="text-xs text-muted-foreground">Shops</p>
             </CardContent>
           </Card>
         </div>
 
+        {/* No shops warning */}
+        {!isLoading && shops.length === 0 && (
+          <Card className="border-orange-500/20 bg-orange-500/5">
+            <CardContent className="p-4">
+              <p className="text-sm text-orange-600 dark:text-orange-400">
+                You need to create at least one shop before adding staff members.
+              </p>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="mt-2"
+                onClick={() => navigate('/owner/shops')}
+              >
+                Create Shop
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Staff List */}
-        {staffList.length === 0 ? (
+        {isLoading ? (
+          <div className="space-y-3">
+            {[1, 2, 3].map(i => (
+              <Card key={i} className="border-border">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="h-12 w-12 rounded-full" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-3 w-48" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : staffList.length === 0 ? (
           <Card className="border-border">
             <CardContent className="p-8 text-center">
               <Users className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
               <p className="text-muted-foreground">No staff members yet</p>
-              <Button className="mt-4" onClick={() => setShowAddDialog(true)}>
-                <Plus className="h-4 w-4 mr-1" />
-                Add Your First Staff
-              </Button>
+              {shops.length > 0 && (
+                <Button className="mt-4" onClick={() => setShowAddDialog(true)}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Your First Staff
+                </Button>
+              )}
             </CardContent>
           </Card>
         ) : (
@@ -215,14 +233,14 @@ export const StaffManagement = () => {
                       <div className="flex items-center gap-2">
                         <p className="font-medium text-foreground">{staff.name}</p>
                         <span className={`text-xs px-2 py-0.5 rounded-full ${
-                          staff.status === 'active'
+                          staff.is_active
                             ? 'bg-green-500/10 text-green-500'
                             : 'bg-destructive/10 text-destructive'
                         }`}>
-                          {staff.status}
+                          {staff.is_active ? 'Active' : 'Inactive'}
                         </span>
                       </div>
-                      <p className="text-xs text-muted-foreground">{staff.shopName}</p>
+                      <p className="text-xs text-muted-foreground">{staff.shop_name || 'Not assigned'}</p>
                       <div className="flex items-center gap-3 mt-1">
                         <span className="text-xs text-muted-foreground flex items-center gap-1">
                           <Mail className="h-3 w-3" />
@@ -242,31 +260,19 @@ export const StaffManagement = () => {
                         <Edit className="h-4 w-4 mr-2" />
                         Edit
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => toggleStaffStatus(staff.id)}>
+                      <DropdownMenuItem onClick={() => toggleStaffStatus(staff.id, staff.is_active)}>
                         <Power className="h-4 w-4 mr-2" />
-                        {staff.status === 'active' ? 'Deactivate' : 'Activate'}
+                        {staff.is_active ? 'Deactivate' : 'Activate'}
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         className="text-destructive"
-                        onClick={() => deleteStaff(staff.id)}
+                        onClick={() => handleDeleteStaff(staff.id)}
                       >
                         <Trash2 className="h-4 w-4 mr-2" />
                         Remove
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
-                </div>
-
-                {/* Stats */}
-                <div className="flex items-center gap-4 mt-4 pt-3 border-t border-border">
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-orange-500" />
-                    <span className="text-sm text-foreground">{staff.assignedTasks} pending</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-green-500" />
-                    <span className="text-sm text-foreground">{staff.completedTasks} completed</span>
-                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -307,13 +313,34 @@ export const StaffManagement = () => {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Assign to Shop *</label>
+              <label className="text-sm font-medium text-foreground">Password *</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  value={formData.password}
+                  onChange={(e) => handleInputChange('password', e.target.value)}
+                  placeholder="Create password (min 6 chars)"
+                  className="pl-10 pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">Staff will use this password to login</p>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Assign to Shop</label>
               <Select value={formData.shopId} onValueChange={(v) => handleInputChange('shopId', v)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a shop" />
+                  <SelectValue placeholder="Select a shop (optional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockOwnerShops.map(shop => (
+                  {shops.map(shop => (
                     <SelectItem key={shop.id} value={shop.id}>{shop.name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -324,8 +351,18 @@ export const StaffManagement = () => {
             <Button variant="outline" onClick={() => { setShowAddDialog(false); resetForm(); }}>
               Cancel
             </Button>
-            <Button onClick={handleAddStaff}>
-              Add Staff
+            <Button 
+              onClick={handleAddStaff}
+              disabled={createStaff.isPending || !formData.name || !formData.email || !formData.phone || !formData.password || formData.password.length < 6}
+            >
+              {createStaff.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                'Add Staff'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -339,35 +376,21 @@ export const StaffManagement = () => {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Full Name *</label>
-              <Input
-                value={formData.name}
-                onChange={(e) => handleInputChange('name', e.target.value)}
-              />
+              <label className="text-sm font-medium text-foreground">Name</label>
+              <Input value={formData.name} disabled className="bg-muted" />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Email *</label>
-              <Input
-                type="email"
-                value={formData.email}
-                onChange={(e) => handleInputChange('email', e.target.value)}
-              />
+              <label className="text-sm font-medium text-foreground">Email</label>
+              <Input value={formData.email} disabled className="bg-muted" />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Phone *</label>
-              <Input
-                value={formData.phone}
-                onChange={(e) => handleInputChange('phone', e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Assign to Shop *</label>
+              <label className="text-sm font-medium text-foreground">Assign to Shop</label>
               <Select value={formData.shopId} onValueChange={(v) => handleInputChange('shopId', v)}>
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Select a shop" />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockOwnerShops.map(shop => (
+                  {shops.map(shop => (
                     <SelectItem key={shop.id} value={shop.id}>{shop.name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -378,8 +401,18 @@ export const StaffManagement = () => {
             <Button variant="outline" onClick={() => { setShowEditDialog(false); resetForm(); }}>
               Cancel
             </Button>
-            <Button onClick={handleEditStaff}>
-              Save Changes
+            <Button 
+              onClick={handleEditStaff}
+              disabled={updateStaff.isPending}
+            >
+              {updateStaff.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save Changes'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
